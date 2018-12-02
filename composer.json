@@ -1,0 +1,37 @@
+{
+  "name": "fuzeworks/layout",
+  "description": "FuzeWorks Framework Layout Template System",
+  "license": ["MIT"],
+  "authors": [
+    {
+      "name": "TechFuze",
+      "homepage": "https://techfuze.net"
+    },
+    {
+      "name": "FuzeWorks Community",
+      "homepage": "https://techfuze.net/fuzeworks/contributors"
+    }
+  ],
+  "require": {
+    "php": ">=7.1.0"
+  },
+  "require-dev": {
+    "fuzeworks/core": "dev-development",
+    "ext-json": "*",
+    "smarty/smarty": "~3.1",
+    "latte/latte": "~2.4",
+    "phpunit/phpunit": "^7",
+    "mikey179/vfsStream": "1.6.5",
+    "tracy/tracy": "2.4.*"
+  },
+  "suggest": {
+    "smarty/smarty": "Template Engine that is natively supported by FuzeWorks.",
+    "latte/latte": "Template Engine that is natively supported by FuzeWorks"
+  },
+  "autoload": {
+    "psr-4": {
+      "FuzeWorks\\": "src/FuzeWorks/"
+    }
+  }
+
+}
