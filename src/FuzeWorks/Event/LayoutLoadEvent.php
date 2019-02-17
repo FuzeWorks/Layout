@@ -83,4 +83,15 @@ class LayoutLoadEvent extends Event
         $this->engine = $engine;
         $this->assigned_variables = $assigned_variables;
     }
+
+    /**
+     * Assign a variable for the template.
+     *
+     * @param string $key   Key of the variable
+     * @param mixed  $value Value of the variable
+     */
+    public function assign($key, $value)
+    {
+        $this->assigned_variables[$key] = $value;
+    }
 }

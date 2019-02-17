@@ -50,6 +50,7 @@ use FuzeWorks\Exception\EventException;
  */
 class Layout
 {
+    use ComponentPathsTrait;
 
     /**
      * @var Factory
@@ -57,18 +58,18 @@ class Layout
     protected $factory;
 
     /**
-     * The file to be loaded by the layout manager.
+     * The file which the current template is loaded from
      *
      * @var null|string
      */
     public $file = null;
 
     /**
-     * The directory of the file to be loaded by the layout manager.
+     * The directory where the current template is loaded from
      *
-     * @var string
+     * @var null|string
      */
-    public $directory;
+    public $directory = null;
 
     /**
      * All assigned currently assigned to the template.
@@ -101,7 +102,7 @@ class Layout
     /**
      * The currently selected template engine.
      *
-     * @var string name of engine
+     * @var TemplateEngine
      */
     protected $current_engine;
 
@@ -111,7 +112,6 @@ class Layout
     public function init()
     {
         $this->factory = Factory::getInstance();
-        $this->directory = Core::$appDirs[0] . DS .'Layout';
     }
 
     /**
@@ -122,19 +122,18 @@ class Layout
      * You can also provide no particular engine, and the manager will decide what template to load.
      * Remember that doing so will result in a LayoutException when multiple compatible files are found.
      *
-     * @param string $file File to load
-     * @param string $directory Directory to load it from
+     * @param string $file          File to load
+     * @param array  $directories   Directories to load it from, uses componentPaths if none provided
      *
      * @return mixed
      * @throws LayoutException On error
      * @throws EventException
+     * @throws Exception\ConfigException
      */
-    public function display($file, $directory = null)
+    public function display(string $file, array $directories = []): bool
     {
-        $directory = (is_null($directory) ? $this->directory : $directory);
-        $contents = $this->get($file, $directory);
-
-        $event = Events::fireEvent('layoutDisplayEvent', $contents, $file, $directory);
+        $contents = $this->get($file, $directories);
+        $event = Events::fireEvent('layoutDisplayEvent', $contents, $file, $directories);
         if (!$event->isCancelled())
             echo $event->contents;
 
@@ -150,32 +149,29 @@ class Layout
      * Remember that doing so will result in a LayoutException when multiple compatible files are found.
      *
      * @param string $file File to load
-     * @param string $directory Directory to load it from
+     * @param array  $directories Directory to load it from
      *
      * @return string The output of the template
      * @throws LayoutException On error
      */
-    public function get($file, $directory = null): string
+    public function get(string $file, array $directories = []): string
     {
-        $directory = (is_null($directory) ? $this->directory : $directory);
-        Logger::newLevel("Loading template file '".$file."' in '".$directory."'");
+        Logger::newLevel("Loading template file '".$file."'");
+
+        // Determine what directories should be checked
+        $directories = (empty($directories) ? $this->componentPaths : [3 => $directories]);
 
         // First load the template engines
         $this->loadTemplateEngines();
 
         // First retrieve the filePath
         if (is_null($this->current_engine)) {
-            $this->setFileFromString($file, $directory, array_keys($this->file_extensions));
+            $this->setFileFromString($file, $directories, array_keys($this->file_extensions));
         } else {
-            $this->setFileFromString($file, $directory, $this->current_engine->getFileExtensions());
+            $this->setFileFromString($file, $directories, $this->current_engine->getFileExtensions());
         }
 
         // Then assign some basic variables for the template
-        $main_config = $this->factory->config->get('main');
-        $this->assigned_variables['wwwDir'] = $main_config->base_url;
-        $this->assigned_variables['siteURL'] = $main_config->base_url;
-        $this->assigned_variables['serverName'] = $main_config->server_name;
-        $this->assigned_variables['adminMail'] = $main_config->administrator_mail;
         // @TODO: Implement csrfTokenName and csrfHash from security under layoutLoadEvent
 
         // Select an engine if one is not already selected
@@ -196,11 +192,10 @@ class Layout
         }
 
         // The event has been cancelled
-        if ($event->isCancelled()) {
+        if ($event->isCancelled())
             return 'cancelled';
-        }
 
-        // And refetch the data from the event
+        // And re-fetch the data from the event
         $this->current_engine = $event->engine;
         $this->assigned_variables = $event->assigned_variables;
 
@@ -217,16 +212,15 @@ class Layout
     /**
      * Retrieve a Template Engine from a File Extension.
      *
-     * @param string $extension File extention to look for
+     * @param string $extension File extension to look for
      *
      * @return TemplateEngine
      * @throws LayoutException
      */
     public function getEngineFromExtension($extension): TemplateEngine
     {
-        if (isset($this->file_extensions[strtolower($extension)])) {
+        if (isset($this->file_extensions[strtolower($extension)]))
             return $this->engines[ $this->file_extensions[strtolower($extension)]];
-        }
 
         throw new LayoutException('Could not get Template Engine. No engine has corresponding file extension', 1);
     }
@@ -248,27 +242,21 @@ class Layout
      *
      * It will detect whether the file exists and choose a file according to the provided extensions
      *
-     * @param string $string     The string used by a controller. eg: 'dashboard/home'
-     * @param string $directory  The directory to search in for the template
-     * @param array  $extensions Extensions to use for this template. Eg array('php', 'tpl') etc.
+     * @param string $string      The string used by a controller. eg: 'dashboard/home'
+     * @param array  $directories The directories to search in for the template
+     * @param array  $extensions  Extensions to use for this template. Eg array('php', 'tpl') etc.
      *
-     * @return string Filepath of the template
+     * @return array File and directory
      * @throws LayoutException On error
      */
-    public function getFileFromString($string, $directory, $extensions = array()): string
+    public function getFileFromString(string $string, array $directories, array $extensions = []): array
     {
-        $directory = preg_replace('#/+#', '/', (!is_null($directory) ? $directory : $this->directory).DS);
-
         // @TODO Malformed strings pass. Write better function
-        if (strpbrk($directory, "\\/?%*:|\"<>") === TRUE || strpbrk($string, "\\/?%*:|\"<>") === TRUE)
+        if (strpbrk($string, "\\/?%*:|\"<>") === TRUE)
         {
             // @codeCoverageIgnoreStart
             throw new LayoutException('Could not get file. Invalid file string', 1);
             // @codeCoverageIgnoreEnd
-        }
-
-        if (!file_exists($directory)) {
-            throw new LayoutException('Could not get file. Directory does not exist', 1);
         }
 
         // Set the file name and location
@@ -291,27 +279,35 @@ class Layout
             $layoutSelector = implode(DS, $layoutSelector);
         }
 
-        // Then try and select a file
-        $fileSelected = false;
-        $selectedFile = null;
-        foreach ($extensions as $extension) {
-            $file = $directory.$layoutSelector.'.'.strtolower($extension);
-            $file = preg_replace('#/+#', '/', $file);
-            if (file_exists($file) && !$fileSelected) {
-                $selectedFile = $file;
-                $fileSelected = true;
-                Logger::log("Found matching file: '".$file."'");
-            } elseif (file_exists($file) && $fileSelected) {
-                throw new LayoutException('Could not select template. Multiple valid extensions detected. Can not choose.', 1);
+        // Iterate over componentPaths
+        for ($i=Priority::getHighestPriority(); $i<=Priority::getLowestPriority(); $i++)
+        {
+            if (!isset($directories[$i]))
+                continue;
+
+            foreach ($directories[$i] as $directory)
+            {
+                // Then try and select a file
+                $fileSelected = false;
+                $selectedFile = null;
+                foreach ($extensions as $extension) {
+                    $file = $directory.DS.$layoutSelector.'.'.strtolower($extension);
+                    $file = preg_replace('#/+#', '/', $file);
+                    if (file_exists($file) && !$fileSelected) {
+                        $selectedFile = $file;
+                        $fileSelected = true;
+                        Logger::log("Found matching file: '".$file."'");
+                    } elseif (file_exists($file) && $fileSelected) {
+                        throw new LayoutException('Could not select template. Multiple valid extensions detected. Can not choose.', 1);
+                    }
+                }
+
+                if ($fileSelected)
+                    return ['file' => $selectedFile, 'directory' => $directory];
             }
         }
 
-        // And choose what to output
-        if (!$fileSelected) {
-            throw new LayoutException('Could not select template. No matching file found.');
-        }
-
-        return $selectedFile;
+        throw new LayoutException('Could not select template. No matching file found.');
     }
 
     /**
@@ -321,15 +317,16 @@ class Layout
      * It will detect whether the file exists and choose a file according to the provided extensions
      *
      * @param string $string     The string used by a controller. eg: 'dashboard/home'
-     * @param string $directory  The directory to search in for the template
+     * @param array  $directories  The directory to search in for the template
      * @param array  $extensions Extensions to use for this template. Eg array('php', 'tpl') etc.
      *
      * @throws LayoutException On error
      */
-    public function setFileFromString($string, $directory, $extensions = array())
+    public function setFileFromString($string, array $directories, $extensions = array())
     {
-        $this->file = $this->getFileFromString($string, $directory, $extensions);
-        $this->directory = preg_replace('#/+#', '/', (!is_null($directory) ? $directory : $this->directory).DS);
+        $arr = $this->getFileFromString($string, $directories, $extensions);
+        $this->file = $arr['file'];
+        $this->directory = $arr['directory'];
     }
 
     /**
@@ -401,9 +398,8 @@ class Layout
     public function getTitle()
     {
         if (!isset($this->assigned_variables['title']))
-        {
             return false;
-        }
+
         return $this->assigned_variables['title'];
     }
 
@@ -454,7 +450,7 @@ class Layout
      * @return bool true on success
      * @throws LayoutException
      */
-    public function registerEngine(TemplateEngine $engineClass, string $engineName, array $engineFileExtensions = array()): bool
+    public function registerEngine(TemplateEngine $engineClass, string $engineName, array $engineFileExtensions = []): bool
     {
         // First check if the engine already exists
         if (isset($this->engines[$engineName]))
@@ -522,9 +518,8 @@ class Layout
      */
     public function reset()
     {
-        if (!is_null($this->current_engine)) {
+        if (!is_null($this->current_engine))
             $this->current_engine->reset();
-        }
 
         // Unload the engines
         $this->engines = array();
@@ -533,7 +528,6 @@ class Layout
 
         $this->current_engine = null;
         $this->assigned_variables = array();
-        $this->directory = Core::$appDirs[0]. DS . 'Layout';
         Logger::log('Reset the layout manager to its default state');
     }
 }

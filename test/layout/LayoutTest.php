@@ -37,7 +37,7 @@
 use FuzeWorks\Factory;
 use FuzeWorks\Layout;
 use FuzeWorks\Events;
-use FuzeWorks\EventPriority;
+use FuzeWorks\Priority;
 
 /**
  * Class LayoutTest.
@@ -77,13 +77,14 @@ class LayoutTest extends LayoutTestAbstract
         // Prepare container
         $configurator = new \FuzeWorks\Configurator();
         $configurator->addComponent($component);
-        $configurator->addDirectory(dirname(__DIR__) . '/application');
+        $configurator->setTempDirectory(dirname(__DIR__) . '/temp');
+        $configurator->setLogDirectory(dirname(__DIR__) . '/temp');
+
 
         // Create container
         $container = $configurator->createContainer();
 
-        // Init container
-        $container = $container->init();
+        // Init container;
         $this->assertTrue(property_exists($container, 'layouts'));
         $this->assertInstanceOf('FuzeWorks\Layout', $container->layouts);
     }
@@ -103,8 +104,8 @@ class LayoutTest extends LayoutTestAbstract
 
         // Directory test
         $directory = 'test'.DS.'templates'.DS.'testFileAndDirectory';
-        $this->layout->setDirectory($directory);
-        $this->assertEquals($directory, $this->layout->getDirectory());
+        $this->layout->addComponentPath($directory);
+        $this->assertEquals([$directory], $this->layout->getComponentPaths());
     }
 
     /**
@@ -128,20 +129,20 @@ class LayoutTest extends LayoutTestAbstract
         // Extensions to be used in this test
         $extensions = array('php', 'json');
 
+        // Prepare variables
+        $directories = [3 => ['test'.DS.'templates'.DS.'testGetFilePath']];
+
         // Basic path
-        $this->layout->setFileFromString('test', 'test'.DS.'templates'.DS.'testGetFilePath', $extensions);
+        $this->layout->setFileFromString('test', $directories, $extensions);
         $this->assertEquals('test'.DS.'templates'.DS.'testGetFilePath'.DS.'layout.test.php', $this->layout->getFile());
-        $this->assertEquals('test'.DS.'templates'.DS.'testGetFilePath'.DS, $this->layout->getDirectory());
 
         // Alternate file extension
-        $this->layout->setFileFromString('JSON', 'test'.DS.'templates'.DS.'testGetFilePath', $extensions);
+        $this->layout->setFileFromString('JSON', $directories, $extensions);
         $this->assertEquals('test'.DS.'templates'.DS.'testGetFilePath'.DS.'layout.JSON.json', $this->layout->getFile());
-        $this->assertEquals('test'.DS.'templates'.DS.'testGetFilePath'.DS, $this->layout->getDirectory());
 
         // Complex deeper path
-        $this->layout->setFileFromString('Deeper/test', 'test'.DS.'templates'.DS.'testGetFilePath', $extensions);
+        $this->layout->setFileFromString('Deeper/test', $directories, $extensions);
         $this->assertEquals('test'.DS.'templates'.DS.'testGetFilePath'.DS.'Deeper'.DS.'layout.test.php', $this->layout->getFile());
-        $this->assertEquals('test'.DS.'templates'.DS.'testGetFilePath'.DS, $this->layout->getDirectory());
     }
 
     /**
@@ -155,7 +156,7 @@ class LayoutTest extends LayoutTestAbstract
         // Extensions to be used in this test
         $extensions = array('php', 'json');
 
-        $this->layout->setFileFromString('test?\/<>', 'test|?/*<>', $extensions);
+        $this->layout->setFileFromString('test?\/<>', [3=>['test|?/*<>']], $extensions);
     }
 
     /**
@@ -166,7 +167,7 @@ class LayoutTest extends LayoutTestAbstract
     public function testMissingDirectory()
     {
         // Directory that does not exist
-        $this->layout->setFileFromString('test', 'test'.DS.'templates'.DS.'doesNotExist'.DS, array('php'));
+        $this->layout->setFileFromString('test', [3=>['test'.DS.'templates'.DS.'doesNotExist']], array('php'));
     }
 
     /**
@@ -176,7 +177,7 @@ class LayoutTest extends LayoutTestAbstract
      */
     public function testMissingFile()
     {
-        $this->layout->setFileFromString('test', 'test'.DS.'templates'.DS.'testMissingFile'.DS, array('php'));
+        $this->layout->setFileFromString('test', [3=>['test'.DS.'templates'.DS.'testMissingFile']], array('php'));
     }
 
     /**
@@ -186,7 +187,7 @@ class LayoutTest extends LayoutTestAbstract
      */
     public function testUnknownFileExtension()
     {
-        $this->layout->setFileFromString('test', 'test'.DS.'templates'.DS.'testUnknownFileExtension'.DS, array('php'));
+        $this->layout->setFileFromString('test', [3=>['test'.DS.'templates'.DS.'testUnknownFileExtension']], array('php'));
     }
 
     /**
@@ -195,9 +196,9 @@ class LayoutTest extends LayoutTestAbstract
     public function testLayoutGet()
     {
         // Directory of these tests
-        $directory = 'test'.DS.'templates'.DS.'testLayoutGet'.DS;
+        $directories = ['test'.DS.'templates'.DS.'testLayoutGet'];
 
-        $this->assertEquals('Retrieved Data', $this->layout->get('test', $directory));
+        $this->assertEquals('Retrieved Data', $this->layout->get('test', $directories));
     }
 
     /**
@@ -205,9 +206,9 @@ class LayoutTest extends LayoutTestAbstract
      */
     public function testLayoutGetRepeat()
     {
-        $directory = 'test'.DS.'templates'.DS.'testLayoutGetRepeat'.DS;
-        $this->assertEquals('First Data', $this->layout->get('first', $directory));
-        $this->assertEquals('Second Data', $this->layout->get('second', $directory));
+        $directories = ['test'.DS.'templates'.DS.'testLayoutGetRepeat'];
+        $this->assertEquals('First Data', $this->layout->get('first', $directories));
+        $this->assertEquals('Second Data', $this->layout->get('second', $directories));
     }
 
     /**
@@ -216,11 +217,11 @@ class LayoutTest extends LayoutTestAbstract
      */
     public function testLayoutGetCancelledEvent()
     {
-        $directory = 'test'.DS.'templates'.DS.'testLayoutGetCancelledEvent';
+        $directories = ['test'.DS.'templates'.DS.'testLayoutGetCancelledEvent'];
         Events::addListener(function($event){
             $event->setCancelled(true);
-        }, 'layoutLoadEvent', EventPriority::NORMAL);
-        $this->assertEquals('cancelled', $this->layout->get('test', $directory));
+        }, 'layoutLoadEvent', Priority::NORMAL);
+        $this->assertEquals('cancelled', $this->layout->get('test', $directories));
     }
 
     /**
@@ -230,11 +231,11 @@ class LayoutTest extends LayoutTestAbstract
      */
     public function testLayoutGetEventWrongFile()
     {
-        $directory = 'test'.DS.'templates'.DS.'testLayoutGetEventWrongFile';
+        $directories = ['test'.DS.'templates'.DS.'testLayoutGetEventWrongFile'];
         Events::addListener(function($event){
             $event->file = 'does_not_exist';
-        }, 'layoutLoadEvent', EventPriority::NORMAL);
-        $this->layout->get('test', $directory);
+        }, 'layoutLoadEvent', Priority::NORMAL);
+        $this->layout->get('test', $directories);
     }
 
     /**
@@ -244,13 +245,13 @@ class LayoutTest extends LayoutTestAbstract
     public function testLayoutDisplayEventAndDisplay()
     {
         // Directory of these tests
-        $directory = 'test'.DS.'templates'.DS.'testLayoutGet'.DS;
+        $directories = ['test'.DS.'templates'.DS.'testLayoutGet'];
         Events::addListener(function($event){
             $this->assertEquals('Retrieved Data', $event->contents);
-        }, 'layoutDisplayEvent', EventPriority::NORMAL);
+        }, 'layoutDisplayEvent', Priority::NORMAL);
 
         ob_start();
-        $this->layout->display('test', $directory);
+        $this->layout->display('test', $directories);
         $this->assertEquals('Retrieved Data', ob_get_contents());
         ob_end_clean();
     }
@@ -262,20 +263,20 @@ class LayoutTest extends LayoutTestAbstract
      */
     public function testReset()
     {
+        $this->layout->setDirectories([3=>['test'.DS.'templates'.DS.'testLayoutGet']]);
+
         // First the the variables
         $this->layout->setTitle('Test Title');
-        $this->layout->setDirectory('test'.DS.'templates'.DS.'testLayoutGet');
 
         // Test if they are actually set
         $this->assertEquals('Test Title', $this->layout->getTitle());
-        $this->assertEquals('test'.DS.'templates'.DS.'testLayoutGet', $this->layout->getDirectory());
+        $this->assertEquals(['test'.DS.'templates'.DS.'testLayoutGet'], $this->layout->getComponentPaths());
 
         // Reset the layout system
         $this->layout->reset();
 
         // Test for default values
-        $this->assertFalse($this->layout->getTitle());
-        $this->assertTrue(strpos($this->layout->getDirectory(), 'application' . DS . 'Layout') !== false);
+        $this->assertEquals(['test'.DS.'templates'.DS.'testLayoutGet'], $this->layout->getComponentPaths());
     }
 
     /**
@@ -326,7 +327,7 @@ class LayoutTest extends LayoutTestAbstract
         Events::addListener(function($event){
             $this->assertInstanceOf('\FuzeWorks\Event\NotifierEvent', $event);
             throw new \FuzeWorks\Exception\EventException('Forcing failure in loadTemplateEngines()');
-        }, 'layoutLoadEngineEvent', EventPriority::NORMAL);
+        }, 'layoutLoadEngineEvent', Priority::NORMAL);
 
         $this->layout->loadTemplateEngines();
     }
@@ -350,7 +351,7 @@ class LayoutTest extends LayoutTestAbstract
         $this->layout->registerEngine($mock, 'Custom', array('test'));
 
         // And run the engine
-        $this->assertEquals('output', $this->layout->get('test', 'test'.DS.'templates'.DS.'testCustomEngine'));
+        $this->assertEquals('output', $this->layout->get('test', ['test'.DS.'templates'.DS.'testCustomEngine']));
     }
 
 
@@ -442,18 +443,18 @@ class LayoutTest extends LayoutTestAbstract
     public function testEnginesLoadLayout()
     {
         // Directory of these tests
-        $directory = 'test'.DS.'templates'.DS.'testEngines'.DS;
+        $directories = ['test'.DS.'templates'.DS.'testEngines'];
 
         // First the PHP Engine
-        $this->assertEquals('PHP Template Check', $this->layout->get('php', $directory));
+        $this->assertEquals('PHP Template Check', $this->layout->get('php', $directories));
         $this->layout->reset();
 
         // Then the JSON Engine
-        $this->assertEquals('JSON Template Check', json_decode($this->layout->get('json', $directory), true)[0]);
+        $this->assertEquals('JSON Template Check', json_decode($this->layout->get('json', $directories), true)[0]);
         $this->layout->reset();
 
         // And the Smarty Engine
-        $this->assertEquals('Smarty Template Check', $this->layout->get('smarty', $directory));
+        $this->assertEquals('Smarty Template Check', $this->layout->get('smarty', $directories));
     }
 
     /**
@@ -462,21 +463,21 @@ class LayoutTest extends LayoutTestAbstract
     public function testEngineVariables()
     {
         // Directory of these tests
-        $directory = 'test'.DS.'templates'.DS.'testEngineVariables'.DS;
+        $directories = ['test'.DS.'templates'.DS.'testEngineVariables'];
 
         // First the PHP Engine
         $this->layout->assign('key', 'value');
-        $this->assertEquals('value', $this->layout->get('php', $directory));
+        $this->assertEquals('value', $this->layout->get('php', $directories));
         $this->layout->reset();
 
         // Then the JSON Engine
         $this->layout->assign('key', 'value');
-        $this->assertEquals('value', json_decode($this->layout->get('json', $directory), true)['data']['key']);
+        $this->assertEquals('value', json_decode($this->layout->get('json', $directories), true)['data']['key']);
         $this->layout->reset();
 
         // And the Smarty Engine
         $this->layout->assign('key', 'value');
-        $this->assertEquals('value', $this->layout->get('smarty', $directory));
+        $this->assertEquals('value', $this->layout->get('smarty', $directories));
     }
 }
 

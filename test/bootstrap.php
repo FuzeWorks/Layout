@@ -34,14 +34,11 @@
  * @version Version 1.2.0
  */
 
-use org\bovigo\vfs\vfsStream;
-
 require_once(dirname(__DIR__) . '/vendor/autoload.php');
 
 $configurator = new FuzeWorks\Configurator();
 
 // Implement all directories
-$configurator->addDirectory(dirname(__FILE__) . '/application');
 $configurator->setTempDirectory(dirname(__FILE__) . '/temp');
 $configurator->setLogDirectory(dirname(__FILE__) . '/temp');
 
@@ -54,7 +51,6 @@ $configurator->addComponent(new \FuzeWorks\LayoutComponent());
 
 // Create container
 $container = $configurator->createContainer();
-$container->init();
 
 // And return the result
 return $container;

@@ -47,11 +47,24 @@ namespace FuzeWorks;
 class LayoutComponent implements iComponent
 {
 
+    public function getName(): string
+    {
+        return 'LayoutComponent';
+    }
+
     public function getClasses(): array
     {
         return [
             'layouts' => '\FuzeWorks\Layout',
             'languages' => '\FuzeWorks\Languages'
         ];
+    }
+
+    public function onAddComponent(Configurator $configurator)
+    {
+    }
+
+    public function onCreateContainer(Factory $container)
+    {
     }
 }
