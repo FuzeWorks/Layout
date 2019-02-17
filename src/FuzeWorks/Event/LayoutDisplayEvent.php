@@ -59,14 +59,14 @@ class LayoutDisplayEvent extends Event
     public $file;
 
     /**
-     * @var string directory. Directory that the layout file resides in.
+     * @var array directories. Directories that the layout file might resides in.
      */
-    public $directory;
+    public $directories;
 
-    public function init(string $contents, string $file, string $directory)
+    public function init(string $contents, string $file, array $directories)
     {
         $this->contents = $contents;
         $this->file = $file;
-        $this->directory = $directory;
+        $this->directories = $directories;
     }
 }

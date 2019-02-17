@@ -46,7 +46,6 @@ $container = require('bootstrap.php');
 require_once 'layout/LayoutTestAbstract.php';
 
 // Reset error and exception handlers
-ob_start();
 restore_error_handler();
 restore_exception_handler();
 
