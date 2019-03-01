@@ -68,7 +68,7 @@ class LatteEngine implements TemplateEngine
         {
             // If possible, load Latte\Engine
             $this->latte = new Latte;
-            $this->latte->setTempDirectory(realpath(Core::$tempDir . DS . 'Latte'));
+            $this->latte->setTempDirectory(realpath(Core::$tempDir));
         }
         else
         {

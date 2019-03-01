@@ -128,7 +128,6 @@ class Layout
      * @return mixed
      * @throws LayoutException On error
      * @throws EventException
-     * @throws Exception\ConfigException
      */
     public function display(string $file, array $directories = []): bool
     {
