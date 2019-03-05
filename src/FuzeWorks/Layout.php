@@ -128,6 +128,7 @@ class Layout
      * @return mixed
      * @throws LayoutException On error
      * @throws EventException
+     * @throws Exception\ConfigException
      */
     public function display(string $file, array $directories = []): bool
     {
@@ -514,8 +515,10 @@ class Layout
 
     /**
      * Resets the layout manager to its default state.
+     *
+     * @param bool $keep_assigned_vars
      */
-    public function reset()
+    public function reset(bool $keep_assigned_vars = false)
     {
         if (!is_null($this->current_engine))
             $this->current_engine->reset();
@@ -526,7 +529,9 @@ class Layout
         $this->file_extensions = array();
 
         $this->current_engine = null;
-        $this->assigned_variables = array();
+        if (!$keep_assigned_vars)
+            $this->assigned_variables = array();
+
         Logger::log('Reset the layout manager to its default state');
     }
 }
