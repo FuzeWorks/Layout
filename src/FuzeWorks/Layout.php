@@ -149,12 +149,12 @@ class Layout
      * Remember that doing so will result in a LayoutException when multiple compatible files are found.
      *
      * @param string $file File to load
-     * @param array  $directories Directory to load it from
-     *
+     * @param array $directories Directory to load it from
+     * @param bool $ignoreCurrentEngine
      * @return string The output of the template
      * @throws LayoutException On error
      */
-    public function get(string $file, array $directories = []): string
+    public function get(string $file, array $directories = [], bool $ignoreCurrentEngine = false): string
     {
         Logger::newLevel("Loading template file '".$file."'");
 
@@ -165,26 +165,33 @@ class Layout
         $this->loadTemplateEngines();
 
         // First retrieve the filePath
-        if (is_null($this->current_engine)) {
+        if (is_null($this->current_engine))
             $this->setFileFromString($file, $directories, array_keys($this->file_extensions));
-        } else {
+        elseif ($ignoreCurrentEngine)
+            $this->setFileFromString($file, $directories, array_keys($this->file_extensions));
+        else
             $this->setFileFromString($file, $directories, $this->current_engine->getFileExtensions());
-        }
 
         // Then assign some basic variables for the template
         // @TODO: Implement csrfTokenName and csrfHash from security under layoutLoadEvent
 
-        // Select an engine if one is not already selected
         if (is_null($this->current_engine)) {
             $this->current_engine = $this->getEngineFromExtension($this->getExtensionFromFile($this->file));
         }
 
-        $this->current_engine->setDirectory($this->directory);
+        // Select an engine if one is not already selected
+        if (!$ignoreCurrentEngine)
+            $engine = $this->current_engine;
+        else
+            $engine = $this->getEngineFromExtension($this->getExtensionFromFile($this->file));
+
+        // Set directory of the engine
+        $engine->setDirectory($this->directory);
 
         // And run an Event to see what other parts have to say about it
         try {
             /** @var LayoutLoadEvent $event */
-            $event = Events::fireEvent('layoutLoadEvent', $this->file, $this->directory, $this->current_engine, $this->assigned_variables);
+            $event = Events::fireEvent('layoutLoadEvent', $this->file, $this->directory, $engine, $this->assigned_variables);
             // @codeCoverageIgnoreStart
         } catch (EventException $e) {
            throw new LayoutException("layoutEvent threw exception: '".$e->getMessage()."''", 1);
@@ -196,14 +203,14 @@ class Layout
             return 'cancelled';
 
         // And re-fetch the data from the event
-        $this->current_engine = $event->engine;
+        $engine = $event->engine;
         $this->assigned_variables = $event->assigned_variables;
 
         Logger::stopLevel();
 
         // And finally run it
         if (file_exists($event->file)) {
-            return $this->current_engine->get($event->file, $this->assigned_variables);
+            return $engine->get($event->file, $this->assigned_variables);
         }
 
         throw new LayoutException('The requested file was not found', 1);
