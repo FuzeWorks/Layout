@@ -70,6 +70,10 @@ class PHPEngine implements TemplateEngine
         $vars = $this->assigned_variables;
         $directory = $this->directory;
 
+        // Preset assigned variables
+        foreach ($vars as $key => $val)
+            $$key = $val;
+
         // Then run the file
         if (!is_null($file)) {
             ob_start();

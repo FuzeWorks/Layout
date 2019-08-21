@@ -14,12 +14,12 @@
   ],
   "require": {
     "php": ">=7.1.0",
-    "fuzeworks/core": "1.2.0-RC3"
+    "fuzeworks/core": "1.2.0-RC4"
   },
   "require-dev": {
     "ext-json": "*",
-    "smarty/smarty": "~3.1",
-    "latte/latte": "~2.4",
+    "smarty/smarty": "3.1.*",
+    "latte/latte": "2.5.*",
     "phpunit/phpunit": "^7",
     "mikey179/vfsStream": "1.6.5"
   },
